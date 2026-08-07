@@ -6,7 +6,9 @@ import java.util.Properties;
 
 /**
  * Loads application.properties from the classpath; any key can be overridden
- * with a matching -Dkey=value system property (handy for local dev / demos).
+ * with a matching -Dkey=value system property, or an environment variable
+ * (db.url -> DB_URL). Secrets like the Neon connection string should only
+ * ever be supplied this way, never written into application.properties.
  */
 public class AppConfig {
 
@@ -28,8 +30,15 @@ public class AppConfig {
     }
 
     private String get(String key) {
-        String override = System.getProperty(key);
-        return override != null ? override : props.getProperty(key);
+        String systemProperty = System.getProperty(key);
+        if (systemProperty != null) {
+            return systemProperty;
+        }
+        String envVar = System.getenv(key.toUpperCase().replace('.', '_'));
+        if (envVar != null) {
+            return envVar;
+        }
+        return props.getProperty(key);
     }
 
     public int serverPort() {
@@ -60,19 +69,13 @@ public class AppConfig {
         return get("smpp.systemType");
     }
 
-    public String aiClassifyUrl() {
-        return get("ai.classify.url");
-    }
-
-    public int aiConnectTimeoutMs() {
-        return Integer.parseInt(get("ai.connectTimeoutMs"));
-    }
-
-    public int aiReadTimeoutMs() {
-        return Integer.parseInt(get("ai.readTimeoutMs"));
-    }
-
-    public boolean blockSpam() {
-        return Boolean.parseBoolean(get("sms.blockSpam"));
+    /**
+     * Neon connection string, e.g.
+     * postgresql://user:password@host/dbname?sslmode=require
+     * Always supplied via -Ddb.url=... or the DB_URL env var - never
+     * committed to application.properties.
+     */
+    public String dbUrl() {
+        return get("db.url");
     }
 }

@@ -1,0 +1,39 @@
+package com.spamfilter.smsclient.auth;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
+
+/**
+ * Reads/writes the logged-in user's identity on the servlet session.
+ */
+public final class SessionUtil {
+
+    private static final String USER_ID = "userId";
+    private static final String USER_EMAIL = "userEmail";
+
+    private SessionUtil() {
+    }
+
+    public static void login(HttpServletRequest req, String userId, String email) {
+        HttpSession session = req.getSession(true);
+        session.setAttribute(USER_ID, userId);
+        session.setAttribute(USER_EMAIL, email);
+    }
+
+    public static String currentUserId(HttpServletRequest req) {
+        HttpSession session = req.getSession(false);
+        return session == null ? null : (String) session.getAttribute(USER_ID);
+    }
+
+    public static String currentUserEmail(HttpServletRequest req) {
+        HttpSession session = req.getSession(false);
+        return session == null ? null : (String) session.getAttribute(USER_EMAIL);
+    }
+
+    public static void logout(HttpServletRequest req) {
+        HttpSession session = req.getSession(false);
+        if (session != null) {
+            session.invalidate();
+        }
+    }
+}
