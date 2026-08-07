@@ -1,11 +1,6 @@
 package com.spamfilter.smsclient.smpp;
 
-import com.spamfilter.smsclient.ai.AiClassifierClient;
 import com.spamfilter.smsclient.config.AppConfig;
-import com.spamfilter.smsclient.model.Classification;
-import com.spamfilter.smsclient.model.Direction;
-import com.spamfilter.smsclient.model.SmsMessage;
-import com.spamfilter.smsclient.store.MessageStore;
 import org.jsmpp.InvalidResponseException;
 import org.jsmpp.PDUException;
 import org.jsmpp.bean.AlertNotification;
@@ -38,11 +33,10 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Binds to the Osmocom SMSC (osmo-msc's built-in SMPP interface) as a
- * transceiver ESME: submits outbound SMS and receives inbound SMS for
- * classification. If the SMSC isn't reachable yet, it keeps retrying in
- * the background instead of failing startup - useful since the network
- * team's Osmocom stack may come up after this app does.
+ * Binds to the teammate's SMPP server (which itself classifies each message,
+ * forwards it to Osmocom or blocks it, and records it in Neon) as a
+ * transceiver ESME. If the server isn't reachable yet, it keeps retrying in
+ * the background instead of failing startup.
  */
 public class SmppService {
 
@@ -50,8 +44,6 @@ public class SmppService {
     private static final long RETRY_DELAY_SECONDS = 15;
 
     private final AppConfig config;
-    private final MessageStore store;
-    private final AiClassifierClient aiClient;
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "smpp-bind-retry");
         t.setDaemon(true);
@@ -61,10 +53,8 @@ public class SmppService {
     private volatile SMPPSession session;
     private volatile boolean stopping = false;
 
-    public SmppService(AppConfig config, MessageStore store, AiClassifierClient aiClient) {
+    public SmppService(AppConfig config) {
         this.config = config;
-        this.store = store;
-        this.aiClient = aiClient;
     }
 
     public void start() {
@@ -118,7 +108,7 @@ public class SmppService {
     public String submit(String source, String destination, String body) {
         SMPPSession s = session;
         if (s == null || !isBound()) {
-            throw new IllegalStateException("SMPP session is not bound to the SMSC");
+            throw new IllegalStateException("SMPP session is not bound to the SMPP server");
         }
         try {
             return s.submitShortMessage(
@@ -155,26 +145,9 @@ public class SmppService {
 
         @Override
         public void onAcceptDeliverSm(DeliverSm deliverSm) {
-            try {
-                String text = new String(deliverSm.getShortMessage(), StandardCharsets.UTF_8);
-                SmsMessage message = new SmsMessage(Direction.RECEIVED,
-                        deliverSm.getSourceAddr(), deliverSm.getDestAddress(), text);
-
-                Classification classification = aiClient.classify(text);
-                message.setClassification(classification);
-                message.setStatus(classification.isSpam() ? "FLAGGED_SPAM" : "DELIVERED");
-                store.add(message);
-
-                if (classification.isSpam()) {
-                    log.warn("Incoming SMS from {} flagged as SPAM (score={}): \"{}\"",
-                            deliverSm.getSourceAddr(), classification.getScore(), text);
-                } else {
-                    log.info("Incoming SMS from {} to {} stored ({})",
-                            deliverSm.getSourceAddr(), deliverSm.getDestAddress(), classification.getLabel());
-                }
-            } catch (Exception e) {
-                log.error("Failed to process incoming deliver_sm", e);
-            }
+            String text = new String(deliverSm.getShortMessage(), StandardCharsets.UTF_8);
+            log.info("Incoming SMS from {} to {}: \"{}\"",
+                    deliverSm.getSourceAddr(), deliverSm.getDestAddress(), text);
         }
 
         @Override

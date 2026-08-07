@@ -1,23 +1,32 @@
 package com.spamfilter.smsclient;
 
-import com.spamfilter.smsclient.ai.AiClassifierClient;
 import com.spamfilter.smsclient.config.AppConfig;
+import com.spamfilter.smsclient.db.Database;
+import com.spamfilter.smsclient.db.UserRepository;
 import com.spamfilter.smsclient.servlet.HealthServlet;
-import com.spamfilter.smsclient.servlet.MessagesServlet;
+import com.spamfilter.smsclient.servlet.IndexServlet;
+import com.spamfilter.smsclient.servlet.LoginServlet;
+import com.spamfilter.smsclient.servlet.LogoutServlet;
+import com.spamfilter.smsclient.servlet.MessageHistoryServlet;
+import com.spamfilter.smsclient.servlet.NumbersServlet;
+import com.spamfilter.smsclient.servlet.RegisterServlet;
 import com.spamfilter.smsclient.servlet.SendSmsServlet;
 import com.spamfilter.smsclient.smpp.SmppService;
-import com.spamfilter.smsclient.store.MessageStore;
 import org.apache.catalina.Context;
 import org.apache.catalina.startup.Tomcat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.sql.DataSource;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
  * Entry point for the SMS client: a self-contained Java SE app that starts
- * an embedded Tomcat and exposes a small REST API in front of an SMPP ESME.
+ * an embedded Tomcat, serves a login-protected web UI for composing an SMS
+ * from one of the user's own numbers, and submits it via SMPP to the
+ * teammate's SMPP server (which classifies it, forwards to Osmocom or
+ * blocks it, and records the result in Neon).
  */
 public class Main {
 
@@ -25,9 +34,9 @@ public class Main {
 
     public static void main(String[] args) throws Exception {
         AppConfig config = new AppConfig();
-        MessageStore store = new MessageStore();
-        AiClassifierClient aiClient = new AiClassifierClient(config);
-        SmppService smppService = new SmppService(config, store, aiClient);
+        SmppService smppService = new SmppService(config);
+        DataSource dataSource = Database.connect(config);
+        UserRepository userRepository = new UserRepository(dataSource);
 
         smppService.start();
 
@@ -39,14 +48,29 @@ public class Main {
 
         Context ctx = tomcat.addContext("", baseDir.toFile().getAbsolutePath());
 
-        Tomcat.addServlet(ctx, "sendSms", new SendSmsServlet(store, aiClient, smppService, config));
-        ctx.addServletMappingDecoded("/api/sms/send", "sendSms");
+        Tomcat.addServlet(ctx, "index", new IndexServlet(userRepository));
+        ctx.addServletMappingDecoded("/", "index");
 
-        Tomcat.addServlet(ctx, "messages", new MessagesServlet(store));
-        ctx.addServletMappingDecoded("/api/sms/messages", "messages");
+        Tomcat.addServlet(ctx, "register", new RegisterServlet(userRepository));
+        ctx.addServletMappingDecoded("/register", "register");
+
+        Tomcat.addServlet(ctx, "login", new LoginServlet(userRepository));
+        ctx.addServletMappingDecoded("/login", "login");
+
+        Tomcat.addServlet(ctx, "logout", new LogoutServlet());
+        ctx.addServletMappingDecoded("/logout", "logout");
+
+        Tomcat.addServlet(ctx, "numbers", new NumbersServlet(userRepository));
+        ctx.addServletMappingDecoded("/numbers", "numbers");
+
+        Tomcat.addServlet(ctx, "sendSms", new SendSmsServlet(smppService, userRepository));
+        ctx.addServletMappingDecoded("/api/sms/send", "sendSms");
 
         Tomcat.addServlet(ctx, "health", new HealthServlet(smppService));
         ctx.addServletMappingDecoded("/api/health", "health");
+
+        Tomcat.addServlet(ctx, "history", new MessageHistoryServlet(userRepository));
+        ctx.addServletMappingDecoded("/api/sms/history", "history");
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             log.info("Shutting down SMS client...");

@@ -2,13 +2,10 @@ package com.spamfilter.smsclient.servlet;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.spamfilter.smsclient.ai.AiClassifierClient;
-import com.spamfilter.smsclient.config.AppConfig;
-import com.spamfilter.smsclient.model.Classification;
-import com.spamfilter.smsclient.model.Direction;
+import com.spamfilter.smsclient.auth.SessionUtil;
+import com.spamfilter.smsclient.db.UserRepository;
 import com.spamfilter.smsclient.model.SmsMessage;
 import com.spamfilter.smsclient.smpp.SmppService;
-import com.spamfilter.smsclient.store.MessageStore;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -20,27 +17,43 @@ import java.util.Map;
 /**
  * POST /api/sms/send  { "source": "...", "destination": "...", "body": "..." }
  *
- * Classifies the body with the AI service, then submits it to the SMSC via
- * SMPP unless it's spam and sms.blockSpam=true.
+ * Requires a logged-in session. Submits the message via SMPP to the
+ * teammate's SMPP server, which does the spam classification, forwards to
+ * Osmocom or blocks it, and records the result in Neon. This servlet just
+ * validates input, checks the source number actually belongs to the caller,
+ * and reports the outcome of the SMPP handoff itself.
  */
 public class SendSmsServlet extends HttpServlet {
 
-    private final MessageStore store;
-    private final AiClassifierClient aiClient;
     private final SmppService smppService;
-    private final AppConfig config;
+    private final UserRepository userRepository;
     private final ObjectMapper mapper = new ObjectMapper();
 
-    public SendSmsServlet(MessageStore store, AiClassifierClient aiClient, SmppService smppService, AppConfig config) {
-        this.store = store;
-        this.aiClient = aiClient;
+    public SendSmsServlet(SmppService smppService, UserRepository userRepository) {
         this.smppService = smppService;
-        this.config = config;
+        this.userRepository = userRepository;
     }
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        JsonNode json = mapper.readTree(req.getInputStream());
+        String userId = SessionUtil.currentUserId(req);
+        if (userId == null) {
+            writeError(resp, HttpServletResponse.SC_UNAUTHORIZED, "Not logged in");
+            return;
+        }
+
+        JsonNode json;
+        try {
+            json = mapper.readTree(req.getInputStream());
+        } catch (Exception e) {
+            writeError(resp, HttpServletResponse.SC_BAD_REQUEST, "Malformed request body");
+            return;
+        }
+        if (json == null) {
+            writeError(resp, HttpServletResponse.SC_BAD_REQUEST, "Malformed request body");
+            return;
+        }
+
         String source = json.path("source").asText(null);
         String destination = json.path("destination").asText(null);
         String body = json.path("body").asText(null);
@@ -50,26 +63,23 @@ public class SendSmsServlet extends HttpServlet {
             return;
         }
 
-        SmsMessage message = new SmsMessage(Direction.SENT, source, destination, body);
-        Classification classification = aiClient.classify(body);
-        message.setClassification(classification);
-
-        boolean blocked = classification.isSpam() && config.blockSpam();
-        if (blocked) {
-            message.setStatus("BLOCKED_SPAM");
-        } else {
-            try {
-                smppService.submit(source, destination, body);
-                message.setStatus("SENT");
-            } catch (RuntimeException e) {
-                message.setStatus("FAILED");
-                store.add(message);
-                writeError(resp, HttpServletResponse.SC_SERVICE_UNAVAILABLE, e.getMessage());
-                return;
-            }
+        if (!userRepository.userOwnsNumber(userId, source)) {
+            writeError(resp, HttpServletResponse.SC_FORBIDDEN, "That source number is not one of your numbers");
+            return;
         }
 
-        store.add(message);
+        SmsMessage message = new SmsMessage(source, destination, body);
+
+        try {
+            String smppMessageId = smppService.submit(source, destination, body);
+            message.setSmppMessageId(smppMessageId);
+            message.setStatus("SUBMITTED");
+        } catch (RuntimeException e) {
+            message.setStatus("FAILED");
+            writeError(resp, HttpServletResponse.SC_SERVICE_UNAVAILABLE, e.getMessage());
+            return;
+        }
+
         resp.setStatus(HttpServletResponse.SC_OK);
         resp.setContentType("application/json");
         mapper.writeValue(resp.getOutputStream(), toJson(message));
@@ -88,17 +98,12 @@ public class SendSmsServlet extends HttpServlet {
     static Map<String, Object> toJson(SmsMessage m) {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("id", m.getId());
-        map.put("direction", m.getDirection());
         map.put("source", m.getSource());
         map.put("destination", m.getDestination());
         map.put("body", m.getBody());
         map.put("status", m.getStatus());
+        map.put("smppMessageId", m.getSmppMessageId());
         map.put("timestamp", m.getTimestamp().toString());
-        if (m.getClassification() != null) {
-            map.put("classification", Map.of(
-                    "label", m.getClassification().getLabel(),
-                    "score", m.getClassification().getScore()));
-        }
         return map;
     }
 }
