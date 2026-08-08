@@ -3,8 +3,10 @@
 -- Written/maintained by whichever component owns each concern (the SMPP
 -- server for messages, the SIP client for calls, etc).
 --
--- Message bodies and call transcripts are intentionally NOT stored - only
--- the classification verdict and metadata are kept.
+-- NOTE: this file had drifted from the live Neon database (columns/tables
+-- added directly against production without updating this file). It was
+-- resynced on 2026-08-08 from the live schema; see git history for the
+-- previous (stale) version if you need to compare.
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto; -- for gen_random_uuid()
 
@@ -20,6 +22,9 @@ CREATE TABLE subscribers (
 );
 
 -- SMS records, written after the SMPP server classifies and routes/blocks each one.
+-- sms_body currently stores the raw message text - this contradicts the
+-- project's original intent (verdict/metadata only, no content at rest).
+-- Flagged for the team to confirm intentionally; not changed here.
 CREATE TABLE messages (
     id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     source                   VARCHAR(20) NOT NULL,
@@ -30,7 +35,8 @@ CREATE TABLE messages (
     classification_score     DOUBLE PRECISION NOT NULL CHECK (classification_score BETWEEN 0 AND 1),
     status                   VARCHAR(20) NOT NULL CHECK (status IN ('DELIVERED', 'BLOCKED')),
     smpp_message_id          VARCHAR(65),
-    received_at              TIMESTAMPTZ NOT NULL DEFAULT now()
+    received_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+    sms_body                 TEXT
 );
 
 -- Voice call records, written after the SIP client's transcript is classified.
@@ -62,12 +68,36 @@ CREATE TABLE logs (
 
 -- Numbers explicitly blocked outright, checked before classification runs.
 -- Not FK'd to subscribers - most blocked numbers were never registered.
+-- trigger_message_id is set when the classifier auto-adds an entry off the
+-- back of a specific flagged message (vs. an admin adding one by hand).
 CREATE TABLE blocklist (
-    id         BIGSERIAL PRIMARY KEY,
-    msisdn     VARCHAR(20) UNIQUE NOT NULL,
-    reason     TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    expires_at TIMESTAMPTZ
+    id                 BIGSERIAL PRIMARY KEY,
+    msisdn             VARCHAR(20) UNIQUE NOT NULL,
+    reason             TEXT,
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    expires_at         TIMESTAMPTZ,
+    trigger_message_id UUID REFERENCES messages (id) ON DELETE SET NULL
+);
+
+-- Numbers explicitly trusted, added by an admin (added_by) or the system.
+-- No expiry - unlike blocklist, trust here doesn't lapse on its own.
+CREATE TABLE whitelisted_senders (
+    id          BIGSERIAL PRIMARY KEY,
+    sender_id   VARCHAR(50) UNIQUE NOT NULL,
+    alias_name  VARCHAR(50),
+    description TEXT,
+    added_by    VARCHAR(100) NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Denormalized current-status lookup per sender. As of 2026-08-08 this
+-- table is empty even though blocklist/whitelisted_senders both have real
+-- entries, which suggests nothing reads/writes it yet (in-progress or
+-- superseded design) - confirm with whoever added it before relying on it
+-- as the classifier's actual fast-path check.
+CREATE TABLE sender_policy (
+    sender_id VARCHAR(255) PRIMARY KEY,
+    status    VARCHAR(255) CHECK (status IN ('WHITELISTED', 'BLACKLISTED', 'UNKNOWN'))
 );
 
 CREATE INDEX idx_messages_source ON messages (source);
@@ -86,12 +116,16 @@ CREATE INDEX idx_logs_created_at ON logs (created_at DESC);
 -- already depends on). Login is by email since one user can own several
 -- phone numbers - email is the single account identity, numbers are an
 -- owned one-to-many resource.
+-- role gates access to the admin website (admin-client): ROLE_ADMIN and
+-- ROLE_ESCALATION can log in there, ROLE_SUPPORT cannot.
 CREATE TABLE users (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email        VARCHAR(255) UNIQUE NOT NULL,
     password     VARCHAR(255) NOT NULL,
     display_name VARCHAR(100),
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    role         VARCHAR(50) NOT NULL DEFAULT 'ROLE_SUPPORT'
+                     CHECK (role IN ('ROLE_SUPPORT', 'ROLE_ESCALATION', 'ROLE_ADMIN'))
 );
 
 -- Phone numbers a user owns and can send SMS from. Deliberately matched to
