@@ -128,7 +128,7 @@ final class WebPage {
             .ham { color: var(--ham); }
             .row { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--border); }
             .row:last-child { border-bottom: none; }
-            #result { margin-top: 1.5rem; padding: 0.75rem; border-radius: 8px; white-space: pre-wrap; font-family: monospace; font-size: 0.85rem; display: none; }
+            #result { margin-top: 1.5rem; padding: 0.75rem 1rem; border-radius: 8px; font-size: 0.9rem; display: none; }
             #result.ok { display: block; background: #e6f4ea; color: var(--ham); }
             #result.error { display: block; background: #fce8e6; color: var(--spam); }
             """;

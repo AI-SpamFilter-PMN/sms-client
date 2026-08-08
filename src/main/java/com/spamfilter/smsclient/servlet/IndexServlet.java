@@ -98,14 +98,25 @@ public class IndexServlet extends HttpServlet {
                           body: JSON.stringify(payload)
                         });
                         const data = await res.json();
-                        result.className = res.ok ? 'ok' : 'error';
-                        result.textContent = JSON.stringify(data, null, 2);
+
+                        if (res.ok) {
+                          result.className = 'ok';
+                          result.innerHTML = `Message sent from <strong>${escapeHtml(data.source)}</strong> to <strong>${escapeHtml(data.destination)}</strong>.`;
+                          document.getElementById('body').value = '';
+                        } else {
+                          result.className = 'error';
+                          result.innerHTML = `Could not send message: ${escapeHtml(data.error || 'unknown error')}`;
+                        }
                         loadHistory();
                       } catch (err) {
                         result.className = 'error';
                         result.textContent = 'Request failed: ' + err;
                       }
                     });
+                  }
+
+                  function escapeHtml(s) {
+                    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                   }
 
                   async function loadHistory() {
