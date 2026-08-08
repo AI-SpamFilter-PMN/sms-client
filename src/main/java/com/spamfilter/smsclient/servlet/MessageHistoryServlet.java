@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.List;
 import java.util.Map;
 
@@ -34,24 +35,48 @@ public class MessageHistoryServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        resp.setContentType("application/json");
-
         String userId = SessionUtil.currentUserId(req);
         if (userId == null) {
-            resp.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            mapper.writeValue(resp.getOutputStream(), Map.of("error", "Not logged in"));
+            writeJson(resp, HttpServletResponse.SC_UNAUTHORIZED, Map.of("error", "Not logged in"));
             return;
         }
 
         int limit = parseLimit(req.getParameter("limit"));
 
+        List<MessageRecord> records;
         try {
-            List<MessageRecord> records = userRepository.historyForUser(userId, limit);
-            mapper.writeValue(resp.getOutputStream(), records);
+            records = userRepository.historyForUser(userId, limit);
         } catch (IllegalStateException e) {
             log.warn("Failed to query message history: {}", e.getMessage());
-            resp.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-            mapper.writeValue(resp.getOutputStream(), Map.of("error", "Could not reach the database"));
+            writeJson(resp, HttpServletResponse.SC_SERVICE_UNAVAILABLE, Map.of("error", "Could not reach the database"));
+            return;
+        }
+
+        writeJson(resp, HttpServletResponse.SC_OK, records);
+    }
+
+    /**
+     * Serializes to a String first, then writes it in one shot - a failure
+     * mid-serialization (or a dropped connection to Neon) must never leave a
+     * half-written JSON body on the wire, which the client can't parse.
+     */
+    private void writeJson(HttpServletResponse resp, int status, Object payload) throws IOException {
+        String json;
+        try {
+            json = mapper.writeValueAsString(payload);
+        } catch (Exception e) {
+            log.warn("Failed to serialize response: {}", e.getMessage());
+            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            resp.setContentType("application/json");
+            try (PrintWriter out = resp.getWriter()) {
+                out.write("{\"error\":\"Internal error building response\"}");
+            }
+            return;
+        }
+        resp.setStatus(status);
+        resp.setContentType("application/json");
+        try (PrintWriter out = resp.getWriter()) {
+            out.write(json);
         }
     }
 

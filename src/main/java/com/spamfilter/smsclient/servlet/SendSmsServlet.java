@@ -11,6 +11,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -80,9 +81,7 @@ public class SendSmsServlet extends HttpServlet {
             return;
         }
 
-        resp.setStatus(HttpServletResponse.SC_OK);
-        resp.setContentType("application/json");
-        mapper.writeValue(resp.getOutputStream(), toJson(message));
+        writeJson(resp, HttpServletResponse.SC_OK, toJson(message));
     }
 
     private static boolean isBlank(String s) {
@@ -90,9 +89,31 @@ public class SendSmsServlet extends HttpServlet {
     }
 
     private void writeError(HttpServletResponse resp, int status, String message) throws IOException {
+        writeJson(resp, status, Map.of("error", message));
+    }
+
+    /**
+     * Serializes to a String first, then writes it in one shot - a failure
+     * mid-serialization must never leave a half-written JSON body on the
+     * wire, which the client can't parse.
+     */
+    private void writeJson(HttpServletResponse resp, int status, Object payload) throws IOException {
+        String json;
+        try {
+            json = mapper.writeValueAsString(payload);
+        } catch (Exception e) {
+            resp.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            resp.setContentType("application/json");
+            try (PrintWriter out = resp.getWriter()) {
+                out.write("{\"error\":\"Internal error building response\"}");
+            }
+            return;
+        }
         resp.setStatus(status);
         resp.setContentType("application/json");
-        mapper.writeValue(resp.getOutputStream(), Map.of("error", message));
+        try (PrintWriter out = resp.getWriter()) {
+            out.write(json);
+        }
     }
 
     static Map<String, Object> toJson(SmsMessage m) {
