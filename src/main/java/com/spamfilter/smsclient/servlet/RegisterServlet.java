@@ -54,32 +54,32 @@ public class RegisterServlet extends HttpServlet {
     }
 
     private void render(HttpServletResponse resp, String error) throws IOException {
-        String body = """
+        String card = """
                 <div class="card">
-                  <h1>Create an account</h1>
                   %s
                   <form method="post">
                     <label for="email">Email</label>
-                    <input id="email" name="email" type="email" required>
+                    <input id="email" name="email" type="email" required placeholder="you@example.com" autofocus>
 
                     <label for="displayName">Display name (optional)</label>
-                    <input id="displayName" name="displayName">
+                    <input id="displayName" name="displayName" placeholder="How should we call you?">
 
                     <label for="password">Password</label>
-                    <input id="password" name="password" type="password" required>
+                    <input id="password" name="password" type="password" required placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;">
 
                     <label for="confirm">Confirm password</label>
-                    <input id="confirm" name="confirm" type="password" required>
+                    <input id="confirm" name="confirm" type="password" required placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;">
 
-                    <button type="submit">Register</button>
+                    <button type="submit">Create account</button>
                   </form>
-                  <p class="muted">Already have an account? <a class="link" href="/login">Log in</a></p>
+                  <p class="muted" style="margin-top: 1.25rem;">Already have an account? <a class="link" href="/login">Log in</a></p>
                 </div>
-                """.formatted(error != null ? "<div class=\"banner error\">" + escape(error) + "</div>" : "");
+                """.formatted(error != null ? "<div class=\"banner error\">" + WebPage.ICON_WARN + escape(error) + "</div>" : "");
 
         resp.setContentType("text/html; charset=UTF-8");
         try (PrintWriter out = resp.getWriter()) {
-            out.write(WebPage.shell("Register", null, body));
+            out.write(WebPage.authShell("SpamGuard — Register", "Create your account",
+                    "One account, every number you own, protected by AI.", card));
         }
     }
 

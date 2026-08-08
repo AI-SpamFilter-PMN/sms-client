@@ -45,26 +45,26 @@ public class LoginServlet extends HttpServlet {
     }
 
     private void render(HttpServletResponse resp, String error) throws IOException {
-        String body = """
+        String card = """
                 <div class="card">
-                  <h1>Log in</h1>
                   %s
                   <form method="post">
                     <label for="email">Email</label>
-                    <input id="email" name="email" type="email" required>
+                    <input id="email" name="email" type="email" required placeholder="you@example.com" autofocus>
 
                     <label for="password">Password</label>
-                    <input id="password" name="password" type="password" required>
+                    <input id="password" name="password" type="password" required placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;">
 
                     <button type="submit">Log in</button>
                   </form>
-                  <p class="muted">No account yet? <a class="link" href="/register">Register</a></p>
+                  <p class="muted" style="margin-top: 1.25rem;">No account yet? <a class="link" href="/register">Create one</a></p>
                 </div>
-                """.formatted(error != null ? "<div class=\"banner error\">" + escape(error) + "</div>" : "");
+                """.formatted(error != null ? "<div class=\"banner error\">" + WebPage.ICON_WARN + escape(error) + "</div>" : "");
 
         resp.setContentType("text/html; charset=UTF-8");
         try (PrintWriter out = resp.getWriter()) {
-            out.write(WebPage.shell("Log in", null, body));
+            out.write(WebPage.authShell("SpamGuard — Log in", "Welcome back",
+                    "Log in to send and track your protected messages.", card));
         }
     }
 

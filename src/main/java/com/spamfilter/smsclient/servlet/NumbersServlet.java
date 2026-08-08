@@ -64,45 +64,48 @@ public class NumbersServlet extends HttpServlet {
         List<PhoneNumber> numbers = userRepository.listNumbers(userId);
 
         String rows = numbers.isEmpty()
-                ? "<p class=\"muted\">You haven't added any numbers yet.</p>"
+                ? "<p class=\"muted\">You haven't added any numbers yet — add one below.</p>"
                 : numbers.stream().map(n -> """
-                        <div class="row">
-                          <span>%s%s</span>
+                        <div class="numbers-row">
+                          <span><span class="msisdn">%s</span>%s</span>
                           <form method="post" style="margin:0;">
                             <input type="hidden" name="action" value="remove">
                             <input type="hidden" name="id" value="%s">
-                            <button type="submit" class="secondary" style="margin-top:0;">Remove</button>
+                            <button type="submit" class="icon-btn" title="Remove">%s</button>
                           </form>
                         </div>
                         """.formatted(escape(n.getMsisdn()),
-                                n.getLabel() != null ? " <span class=\"muted\">(" + escape(n.getLabel()) + ")</span>" : "",
-                                n.getId()))
+                                n.getLabel() != null ? " <span class=\"label-tag\">" + escape(n.getLabel()) + "</span>" : "",
+                                n.getId(), WebPage.ICON_TRASH))
                         .collect(Collectors.joining());
 
         String body = """
-                <div class="card">
-                  <h1>My Numbers</h1>
-                  %s
-                  %s
-                </div>
-                <div class="card">
-                  <h2>Add a number</h2>
-                  <form method="post">
-                    <input type="hidden" name="action" value="add">
-                    <label for="msisdn">Phone number</label>
-                    <input id="msisdn" name="msisdn" required placeholder="1000">
+                <div class="dashboard-grid">
+                  <div class="card">
+                    <h1>My Numbers</h1>
+                    <p class="subtitle">Numbers you can send SMS from.</p>
+                    %s
+                    %s
+                  </div>
+                  <div class="card">
+                    <h2>Add a number</h2>
+                    <form method="post">
+                      <input type="hidden" name="action" value="add">
+                      <label for="msisdn">Phone number</label>
+                      <input id="msisdn" name="msisdn" required placeholder="1000">
 
-                    <label for="label">Label (optional)</label>
-                    <input id="label" name="label" placeholder="Personal">
+                      <label for="label">Label (optional)</label>
+                      <input id="label" name="label" placeholder="Personal">
 
-                    <button type="submit">Add number</button>
-                  </form>
+                      <button type="submit">Add number</button>
+                    </form>
+                  </div>
                 </div>
-                """.formatted(error != null ? "<div class=\"banner error\">" + escape(error) + "</div>" : "", rows);
+                """.formatted(error != null ? "<div class=\"banner error\">" + WebPage.ICON_WARN + escape(error) + "</div>" : "", rows);
 
         resp.setContentType("text/html; charset=UTF-8");
         try (PrintWriter out = resp.getWriter()) {
-            out.write(WebPage.shell("My Numbers", SessionUtil.currentUserEmail(req), body));
+            out.write(WebPage.shell("SpamGuard — My Numbers", SessionUtil.currentUserEmail(req), body));
         }
     }
 

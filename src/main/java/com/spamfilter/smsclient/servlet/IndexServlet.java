@@ -48,30 +48,28 @@ public class IndexServlet extends HttpServlet {
                         .collect(Collectors.joining()));
 
         String body = """
-                <div class="card">
-                  <h1>Send an SMS</h1>
-                  <form id="sendForm">
-                    %s
-                    <label for="destination">Destination</label>
-                    <input id="destination" name="destination" required placeholder="2000">
+                <div class="dashboard-grid">
+                  <div class="card">
+                    <h1>Send an SMS</h1>
+                    <p class="subtitle">Every message is screened by the AI classifier before delivery.</p>
+                    <form id="sendForm">
+                      %s
+                      <label for="destination">Destination</label>
+                      <input id="destination" name="destination" required placeholder="2000">
 
-                    <label for="body">Message</label>
-                    <textarea id="body" name="body" rows="4" required></textarea>
+                      <label for="body">Message</label>
+                      <textarea id="body" name="body" rows="4" required placeholder="Type your message..."></textarea>
 
-                    <button type="submit">Send</button>
-                  </form>
-                  <div id="result"></div>
-                </div>
+                      <button type="submit">Send message</button>
+                    </form>
+                    <div id="result"></div>
+                  </div>
 
-                <div class="card">
-                  <h2>My recent messages</h2>
-                  <p id="historyStatus" class="muted">Loading...</p>
-                  <table id="historyTable" style="display: none;">
-                    <thead>
-                      <tr><th>Source</th><th>Destination</th><th>Verdict</th><th>Status</th><th>Received</th></tr>
-                    </thead>
-                    <tbody id="historyBody"></tbody>
-                  </table>
+                  <div class="card">
+                    <h2>Recent messages</h2>
+                    <p id="historyStatus" class="muted">Loading...</p>
+                    <div id="historyList" style="display: none;"></div>
+                  </div>
                 </div>
 
                 <script>
@@ -82,8 +80,8 @@ public class IndexServlet extends HttpServlet {
                     form.addEventListener('submit', async (e) => {
                       e.preventDefault();
                       result.className = '';
-                      result.textContent = 'Sending...';
-                      result.style.display = 'block';
+                      result.style.display = 'flex';
+                      result.innerHTML = 'Sending...';
 
                       const payload = {
                         source: document.getElementById('source').value,
@@ -100,20 +98,23 @@ public class IndexServlet extends HttpServlet {
                         const data = await res.json();
 
                         if (res.ok) {
-                          result.className = 'ok';
-                          result.innerHTML = `Message sent from <strong>${escapeHtml(data.source)}</strong> to <strong>${escapeHtml(data.destination)}</strong>.`;
+                          result.className = 'banner ok';
+                          result.innerHTML = ICON_CHECK + `Message sent from <strong>&nbsp;${escapeHtml(data.source)}&nbsp;</strong> to <strong>&nbsp;${escapeHtml(data.destination)}</strong>.`;
                           document.getElementById('body').value = '';
                         } else {
-                          result.className = 'error';
-                          result.innerHTML = `Could not send message: ${escapeHtml(data.error || 'unknown error')}`;
+                          result.className = 'banner error';
+                          result.innerHTML = ICON_WARN + `Could not send message: ${escapeHtml(data.error || 'unknown error')}`;
                         }
                         loadHistory();
                       } catch (err) {
-                        result.className = 'error';
-                        result.textContent = 'Request failed: ' + err;
+                        result.className = 'banner error';
+                        result.innerHTML = ICON_WARN + 'Request failed: ' + escapeHtml(String(err));
                       }
                     });
                   }
+
+                  const ICON_CHECK = '%s';
+                  const ICON_WARN = '%s';
 
                   function escapeHtml(s) {
                     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -121,8 +122,7 @@ public class IndexServlet extends HttpServlet {
 
                   async function loadHistory() {
                     const status = document.getElementById('historyStatus');
-                    const table = document.getElementById('historyTable');
-                    const body = document.getElementById('historyBody');
+                    const list = document.getElementById('historyList');
 
                     try {
                       const res = await fetch('/api/sms/history?limit=25');
@@ -130,42 +130,52 @@ public class IndexServlet extends HttpServlet {
 
                       if (!res.ok) {
                         status.textContent = data.error || 'Could not load history';
-                        table.style.display = 'none';
+                        status.style.display = 'block';
+                        list.style.display = 'none';
                         return;
                       }
 
                       if (data.length === 0) {
                         status.textContent = 'No classified messages yet.';
-                        table.style.display = 'none';
+                        status.style.display = 'block';
+                        list.style.display = 'none';
                         return;
                       }
 
-                      body.innerHTML = data.map(m => `
-                        <tr>
-                          <td>${m.source}</td>
-                          <td>${m.destination}</td>
-                          <td class="${m.classificationLabel}">${m.classificationLabel} (${m.classificationScore.toFixed(2)})</td>
-                          <td>${m.status}</td>
-                          <td>${new Date(m.receivedAt).toLocaleString()}</td>
-                        </tr>
-                      `).join('');
+                      list.innerHTML = data.map(m => {
+                        const badgeClass = m.classificationLabel === 'spam' ? 'spam' : 'ham';
+                        return `
+                          <div class="msg-row">
+                            <div class="msg-route">${escapeHtml(m.source)} <span class="arrow">&#8594;</span> ${escapeHtml(m.destination)}</div>
+                            <div class="msg-meta">
+                              <span class="badge ${badgeClass}">${escapeHtml(m.classificationLabel)} &middot; ${m.classificationScore.toFixed(2)}</span>
+                              <div class="msg-time">${escapeHtml(m.status)} &middot; ${new Date(m.receivedAt).toLocaleString()}</div>
+                            </div>
+                          </div>
+                        `;
+                      }).join('');
 
                       status.style.display = 'none';
-                      table.style.display = 'table';
+                      list.style.display = 'block';
                     } catch (err) {
                       status.textContent = 'Could not load history: ' + err;
-                      table.style.display = 'none';
+                      status.style.display = 'block';
+                      list.style.display = 'none';
                     }
                   }
 
                   loadHistory();
                 </script>
-                """.formatted(sourceField);
+                """.formatted(sourceField, oneLine(WebPage.ICON_CHECK), oneLine(WebPage.ICON_WARN));
 
         resp.setContentType("text/html; charset=UTF-8");
         try (PrintWriter out = resp.getWriter()) {
-            out.write(WebPage.shell("SMS Client", SessionUtil.currentUserEmail(req), body));
+            out.write(WebPage.shell("SpamGuard — Send", SessionUtil.currentUserEmail(req), body));
         }
+    }
+
+    private static String oneLine(String svg) {
+        return svg.replace("\n", "").replace("'", "\\'");
     }
 
     private static String escape(String s) {
