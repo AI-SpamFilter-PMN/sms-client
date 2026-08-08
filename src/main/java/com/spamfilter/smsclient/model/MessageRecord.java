@@ -15,7 +15,7 @@ public class MessageRecord {
     private final double classificationScore;
     private final String status;
     private final String smppMessageId;
-    private final Instant receivedAt;
+    private final String receivedAt;
 
     public MessageRecord(String id, String source, String destination, String classificationLabel,
                           double classificationScore, String status, String smppMessageId, Instant receivedAt) {
@@ -26,7 +26,7 @@ public class MessageRecord {
         this.classificationScore = classificationScore;
         this.status = status;
         this.smppMessageId = smppMessageId;
-        this.receivedAt = receivedAt;
+        this.receivedAt = receivedAt.toString();
     }
 
     public String getId() {
@@ -57,7 +57,7 @@ public class MessageRecord {
         return smppMessageId;
     }
 
-    public Instant getReceivedAt() {
+    public String getReceivedAt() {
         return receivedAt;
     }
 }
