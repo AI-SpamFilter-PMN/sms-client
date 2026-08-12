@@ -62,27 +62,26 @@ public class SmppService {
             log.info("SMPP disabled via config (smpp.enabled=false); SMS client will not bind to an SMSC");
             return;
         }
-        executor.submit(this::connectWithRetry);
+        executor.scheduleWithFixedDelay(this::ensureConnection, 0, RETRY_DELAY_SECONDS, TimeUnit.SECONDS);
     }
 
-    private void connectWithRetry() {
-        while (!stopping) {
-            try {
-                bind();
-                return;
-            } catch (Exception e) {
-                log.warn("SMPP bind to {}:{} failed ({}); retrying in {}s",
-                        config.smppHost(), config.smppPort(), e.getMessage(), RETRY_DELAY_SECONDS);
-                sleep();
-            }
+    private void ensureConnection() {
+        if (stopping || isBound()) {
+            return;
         }
-    }
-
-    private void sleep() {
+        
         try {
-            Thread.sleep(TimeUnit.SECONDS.toMillis(RETRY_DELAY_SECONDS));
-        } catch (InterruptedException ignored) {
-            Thread.currentThread().interrupt();
+            if (session != null) {
+                try {
+                    session.unbindAndClose();
+                } catch (Exception e) {
+                    log.warn("Failed to unbind and close SMPP session: {}", e.getMessage());
+                }
+            }
+            bind();
+        } catch (Exception e) {
+            log.warn("SMPP bind to {}:{} failed ({}); retrying in {}s",
+                    config.smppHost(), config.smppPort(), e.getMessage(), RETRY_DELAY_SECONDS);
         }
     }
 
