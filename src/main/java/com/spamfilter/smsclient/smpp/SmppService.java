@@ -88,6 +88,7 @@ public class SmppService {
 
     private void bind() throws IOException {
         SMPPSession newSession = new SMPPSession();
+        newSession.setTransactionTimer(config.smppTransactionTimerMillis());
         newSession.setMessageReceiverListener(new IncomingSmsListener());
         newSession.addSessionStateListener((newState, oldState, source) ->
                 log.info("SMPP session state changed: {} -> {}", oldState, newState));
@@ -97,7 +98,9 @@ public class SmppService {
                         config.smppSystemType(), TypeOfNumber.UNKNOWN, NumberingPlanIndicator.UNKNOWN, null));
 
         this.session = newSession;
-        log.info("SMPP bound to {}:{} as {}", config.smppHost(), config.smppPort(), config.smppSystemId());
+        log.info("SMPP bound to {}:{} as {} (submit_sm response timeout: {} ms)",
+                config.smppHost(), config.smppPort(), config.smppSystemId(),
+                config.smppTransactionTimerMillis());
     }
 
     public boolean isBound() {

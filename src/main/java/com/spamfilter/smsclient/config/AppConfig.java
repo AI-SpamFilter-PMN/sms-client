@@ -70,6 +70,19 @@ public class AppConfig {
     }
 
     /**
+     * Maximum time to wait for an SMPP command response. The Jsmpp default is
+     * only two seconds, which is too short when the SMSC performs routing or
+     * classification before acknowledging a submit_sm request.
+     */
+    public long smppTransactionTimerMillis() {
+        long value = Long.parseLong(get("smpp.transactionTimerMillis"));
+        if (value <= 0) {
+            throw new IllegalArgumentException("smpp.transactionTimerMillis must be greater than zero");
+        }
+        return value;
+    }
+
+    /**
      * Neon connection string, e.g.
      * postgresql://user:password@host/dbname?sslmode=require
      * Always supplied via -Ddb.url=... or the DB_URL env var - never
