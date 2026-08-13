@@ -105,7 +105,8 @@ public class NumbersServlet extends HttpServlet {
 
         resp.setContentType("text/html; charset=UTF-8");
         try (PrintWriter out = resp.getWriter()) {
-            out.write(WebPage.shell("SpamGuard — My Numbers", SessionUtil.currentUserEmail(req), body));
+            out.write(WebPage.shell("SpamGuard — My Numbers", SessionUtil.currentUserEmail(req),
+                    SessionUtil.currentUserRole(req), body));
         }
     }
 

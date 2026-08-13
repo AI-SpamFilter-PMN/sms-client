@@ -44,7 +44,7 @@ public class RegisterServlet extends HttpServlet {
 
         try {
             User user = userRepository.register(email, password, isBlank(displayName) ? null : displayName);
-            SessionUtil.login(req, user.getId(), user.getEmail());
+            SessionUtil.login(req, user.getId(), user.getEmail(), user.getRole());
             resp.sendRedirect("/");
         } catch (IllegalArgumentException e) {
             render(resp, e.getMessage());

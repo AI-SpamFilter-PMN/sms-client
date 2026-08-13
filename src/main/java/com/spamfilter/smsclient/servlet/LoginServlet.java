@@ -37,7 +37,7 @@ public class LoginServlet extends HttpServlet {
                 render(resp, "Invalid email or password");
                 return;
             }
-            SessionUtil.login(req, user.getId(), user.getEmail());
+            SessionUtil.login(req, user.getId(), user.getEmail(), user.getRole());
             resp.sendRedirect("/");
         } catch (IllegalStateException e) {
             render(resp, "Login unavailable: " + e.getMessage());

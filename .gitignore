@@ -6,3 +6,4 @@ dependency-reduced-pom.xml
 *.iml
 .vscode/
 .DS_Store
+how_to_run.txt

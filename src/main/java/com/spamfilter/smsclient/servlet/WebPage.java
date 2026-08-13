@@ -26,9 +26,21 @@ final class WebPage {
         return userId;
     }
 
+    static boolean requireSubscriberManagementAccess(HttpServletRequest req, HttpServletResponse resp) throws IOException {
+        if (requireLogin(req, resp) == null) {
+            return false;
+        }
+        String role = SessionUtil.currentUserRole(req);
+        if (!"ROLE_ADMIN".equals(role) && !"ROLE_ESCALATION".equals(role)) {
+            resp.sendError(HttpServletResponse.SC_FORBIDDEN, "Subscriber management requires an admin or escalation account");
+            return false;
+        }
+        return true;
+    }
+
     /** Full page: nav + content, for logged-in app pages. */
-    static String shell(String title, String activeEmail, String bodyHtml) {
-        return page(title, navLoggedIn(activeEmail) + "<main class=\"container wide\">" + bodyHtml + "</main>");
+    static String shell(String title, String activeEmail, String role, String bodyHtml) {
+        return page(title, navLoggedIn(activeEmail, role) + "<main class=\"container wide\">" + bodyHtml + "</main>");
     }
 
     /** Centered auth page (login/register): no nav links, just the brand + a hero card. */
@@ -60,18 +72,25 @@ final class WebPage {
                 """.formatted(title, CSS, content);
     }
 
-    private static String navLoggedIn(String email) {
+    private static String navLoggedIn(String email, String role) {
         return """
                 <nav class="nav">
                   <a class="brand" href="/">%s SpamGuard</a>
                   <div class="nav-links">
                     <a href="/">Send</a>
+                    <a href="/history">History</a>
                     <a href="/numbers">My Numbers</a>
+                    %s
                     <span class="nav-user">%s</span>
                     <a href="/logout">Logout</a>
                   </div>
                 </nav>
-                """.formatted(LOGO_SVG_SMALL, email);
+                """.formatted(LOGO_SVG_SMALL,
+                canManageSubscribers(role) ? "<a href=\"/subscribers\">Subscribers</a>" : "", email);
+    }
+
+    private static boolean canManageSubscribers(String role) {
+        return "ROLE_ADMIN".equals(role) || "ROLE_ESCALATION".equals(role);
     }
 
     private static String navLoggedOut() {

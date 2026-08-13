@@ -125,7 +125,7 @@ public class IndexServlet extends HttpServlet {
                     const list = document.getElementById('historyList');
 
                     try {
-                      const res = await fetch('/api/sms/history?limit=25');
+                      const res = await fetch('/api/sms/history?limit=5');
                       const data = await res.json();
 
                       if (!res.ok) {
@@ -170,7 +170,8 @@ public class IndexServlet extends HttpServlet {
 
         resp.setContentType("text/html; charset=UTF-8");
         try (PrintWriter out = resp.getWriter()) {
-            out.write(WebPage.shell("SpamGuard — Send", SessionUtil.currentUserEmail(req), body));
+            out.write(WebPage.shell("SpamGuard — Send", SessionUtil.currentUserEmail(req),
+                    SessionUtil.currentUserRole(req), body));
         }
     }
 

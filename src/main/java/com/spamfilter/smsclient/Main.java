@@ -2,15 +2,18 @@ package com.spamfilter.smsclient;
 
 import com.spamfilter.smsclient.config.AppConfig;
 import com.spamfilter.smsclient.db.Database;
+import com.spamfilter.smsclient.db.SubscriberRepository;
 import com.spamfilter.smsclient.db.UserRepository;
 import com.spamfilter.smsclient.servlet.HealthServlet;
 import com.spamfilter.smsclient.servlet.IndexServlet;
 import com.spamfilter.smsclient.servlet.LoginServlet;
 import com.spamfilter.smsclient.servlet.LogoutServlet;
 import com.spamfilter.smsclient.servlet.MessageHistoryServlet;
+import com.spamfilter.smsclient.servlet.HistoryServlet;
 import com.spamfilter.smsclient.servlet.NumbersServlet;
 import com.spamfilter.smsclient.servlet.RegisterServlet;
 import com.spamfilter.smsclient.servlet.SendSmsServlet;
+import com.spamfilter.smsclient.servlet.SubscribersServlet;
 import com.spamfilter.smsclient.smpp.SmppService;
 import org.apache.catalina.Context;
 import org.apache.catalina.startup.Tomcat;
@@ -37,6 +40,7 @@ public class Main {
         SmppService smppService = new SmppService(config);
         DataSource dataSource = Database.connect(config);
         UserRepository userRepository = new UserRepository(dataSource);
+        SubscriberRepository subscriberRepository = new SubscriberRepository(dataSource);
 
         smppService.start();
 
@@ -63,6 +67,9 @@ public class Main {
         Tomcat.addServlet(ctx, "numbers", new NumbersServlet(userRepository));
         ctx.addServletMappingDecoded("/numbers", "numbers");
 
+        Tomcat.addServlet(ctx, "subscribers", new SubscribersServlet(subscriberRepository));
+        ctx.addServletMappingDecoded("/subscribers", "subscribers");
+
         Tomcat.addServlet(ctx, "sendSms", new SendSmsServlet(smppService, userRepository));
         ctx.addServletMappingDecoded("/api/sms/send", "sendSms");
 
@@ -71,6 +78,9 @@ public class Main {
 
         Tomcat.addServlet(ctx, "history", new MessageHistoryServlet(userRepository));
         ctx.addServletMappingDecoded("/api/sms/history", "history");
+
+        Tomcat.addServlet(ctx, "historyPage", new HistoryServlet(userRepository));
+        ctx.addServletMappingDecoded("/history", "historyPage");
 
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             log.info("Shutting down SMS client...");

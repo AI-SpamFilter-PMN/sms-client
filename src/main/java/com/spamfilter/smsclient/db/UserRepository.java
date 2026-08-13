@@ -35,14 +35,15 @@ public class UserRepository {
 
     public User register(String email, String password, String displayName) {
         String sql = "INSERT INTO users (email, password, display_name) VALUES (?, ?, ?) "
-                + "RETURNING id, email, display_name";
+                + "RETURNING id, email, display_name, role";
         try (Connection con = connect(); PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, email);
             ps.setString(2, password);
             ps.setString(3, displayName);
             try (ResultSet rs = ps.executeQuery()) {
                 rs.next();
-                return new User(rs.getString("id"), rs.getString("email"), rs.getString("display_name"));
+                return new User(rs.getString("id"), rs.getString("email"), rs.getString("display_name"),
+                        rs.getString("role"));
             }
         } catch (SQLException e) {
             if (UNIQUE_VIOLATION.equals(e.getSQLState())) {
@@ -53,7 +54,7 @@ public class UserRepository {
     }
 
     public User authenticate(String email, String password) {
-        String sql = "SELECT id, email, display_name, password FROM users WHERE email = ?";
+        String sql = "SELECT id, email, display_name, password, role FROM users WHERE email = ?";
         try (Connection con = connect(); PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, email);
             try (ResultSet rs = ps.executeQuery()) {
@@ -63,7 +64,8 @@ public class UserRepository {
                 if (!password.equals(rs.getString("password"))) {
                     return null;
                 }
-                return new User(rs.getString("id"), rs.getString("email"), rs.getString("display_name"));
+                return new User(rs.getString("id"), rs.getString("email"), rs.getString("display_name"),
+                        rs.getString("role"));
             }
         } catch (SQLException e) {
             throw new IllegalStateException("Could not verify account: " + e.getMessage(), e);
