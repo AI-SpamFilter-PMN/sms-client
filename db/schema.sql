@@ -35,6 +35,8 @@ CREATE TABLE messages (
     classification_score     DOUBLE PRECISION NOT NULL CHECK (classification_score BETWEEN 0 AND 1),
     status                   VARCHAR(20) NOT NULL CHECK (status IN ('DELIVERED', 'BLOCKED')),
     smpp_message_id          VARCHAR(65),
+    message_type             VARCHAR(10) NOT NULL DEFAULT 'SMS'
+                                 CHECK (message_type IN ('SMS', 'SIP')),
     received_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
     sms_body                 TEXT
 );
@@ -52,6 +54,8 @@ CREATE TABLE calls (
     classification_score     DOUBLE PRECISION CHECK (classification_score BETWEEN 0 AND 1),
     status                   VARCHAR(20) NOT NULL
                                  CHECK (status IN ('COMPLETED', 'BLOCKED', 'MISSED', 'FAILED')),
+    transcript               TEXT,
+    recording_url            VARCHAR(512),
     created_at                TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
