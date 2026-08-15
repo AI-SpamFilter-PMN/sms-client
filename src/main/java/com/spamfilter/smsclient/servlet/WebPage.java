@@ -26,17 +26,7 @@ final class WebPage {
         return userId;
     }
 
-    static boolean requireSubscriberManagementAccess(HttpServletRequest req, HttpServletResponse resp) throws IOException {
-        if (requireLogin(req, resp) == null) {
-            return false;
-        }
-        String role = SessionUtil.currentUserRole(req);
-        if (!"ROLE_ADMIN".equals(role) && !"ROLE_ESCALATION".equals(role)) {
-            resp.sendError(HttpServletResponse.SC_FORBIDDEN, "Subscriber management requires an admin or escalation account");
-            return false;
-        }
-        return true;
-    }
+    
 
     /** Full page: nav + content, for logged-in app pages. */
     static String shell(String title, String activeEmail, String role, String bodyHtml) {
@@ -86,11 +76,7 @@ final class WebPage {
                   </div>
                 </nav>
                 """.formatted(LOGO_SVG_SMALL,
-                canManageSubscribers(role) ? "<a href=\"/subscribers\">Subscribers</a>" : "", email);
-    }
-
-    private static boolean canManageSubscribers(String role) {
-        return "ROLE_ADMIN".equals(role) || "ROLE_ESCALATION".equals(role);
+                "", email);
     }
 
     private static String navLoggedOut() {
