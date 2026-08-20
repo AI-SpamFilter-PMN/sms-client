@@ -231,6 +231,7 @@ final class WebPage {
             .banner.error { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger-border); }
             .banner.ok { background: var(--success-bg); color: var(--success); border: 1px solid var(--success-border); }
             .banner svg { flex-shrink: 0; }
+            .banner span { min-width: 0; overflow-wrap: break-word; }
 
             .muted { color: var(--text-muted); font-size: 0.9rem; }
             .link { color: var(--accent-1); text-decoration: none; font-weight: 600; }
@@ -247,11 +248,12 @@ final class WebPage {
             .dashboard-grid { display: grid; grid-template-columns: 380px 1fr; gap: 1.75rem; align-items: start; }
             @media (max-width: 820px) { .dashboard-grid { grid-template-columns: 1fr; } }
 
-            .msg-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.95rem 0; border-bottom: 1px solid var(--glass-border); }
+            .msg-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 0.95rem 0; border-bottom: 1px solid var(--glass-border); }
             .msg-row:last-child { border-bottom: none; }
             .msg-route { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 0.9rem; color: var(--text); display: flex; align-items: center; gap: 0.5rem; }
             .msg-route .arrow { color: var(--text-faint); }
-            .msg-meta { text-align: right; }
+            .msg-body { color: var(--text-muted); font-size: 0.85rem; margin-top: 0.35rem; overflow-wrap: break-word; }
+            .msg-meta { text-align: right; flex-shrink: 0; }
             .msg-time { color: var(--text-faint); font-size: 0.76rem; margin-top: 0.35rem; }
 
             .numbers-row { display: flex; align-items: center; justify-content: space-between; padding: 0.85rem 1.1rem; margin-bottom: 0.6rem; background: rgba(255,255,255,0.03); border: 1px solid var(--glass-border); border-radius: var(--radius-sm); }

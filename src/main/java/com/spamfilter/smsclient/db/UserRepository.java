@@ -129,7 +129,7 @@ public class UserRepository {
 
     public List<MessageRecord> historyForUser(String userId, int limit) {
         String sql = "SELECT id, source, destination, classification_label, classification_score, "
-                + "status, smpp_message_id, received_at FROM messages "
+                + "status, smpp_message_id, received_at, sms_body FROM messages "
                 + "WHERE source IN (SELECT msisdn FROM phone_numbers WHERE user_id = ?) "
                 + "   OR destination IN (SELECT msisdn FROM phone_numbers WHERE user_id = ?) "
                 + "ORDER BY received_at DESC LIMIT ?";
@@ -148,7 +148,8 @@ public class UserRepository {
                             rs.getDouble("classification_score"),
                             rs.getString("status"),
                             rs.getString("smpp_message_id"),
-                            rs.getTimestamp("received_at").toInstant()));
+                            rs.getTimestamp("received_at").toInstant(),
+                            rs.getString("sms_body")));
                 }
             }
         } catch (SQLException e) {

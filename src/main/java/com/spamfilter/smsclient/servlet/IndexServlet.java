@@ -99,16 +99,16 @@ public class IndexServlet extends HttpServlet {
 
                         if (res.ok) {
                           result.className = 'banner ok';
-                          result.innerHTML = ICON_CHECK + `Message sent from <strong>&nbsp;${escapeHtml(data.source)}&nbsp;</strong> to <strong>&nbsp;${escapeHtml(data.destination)}</strong>.`;
+                          result.innerHTML = ICON_CHECK + `<span>Message sent from <strong>&nbsp;${escapeHtml(data.source)}&nbsp;</strong> to <strong>&nbsp;${escapeHtml(data.destination)}</strong>.</span>`;
                           document.getElementById('body').value = '';
                         } else {
                           result.className = 'banner error';
-                          result.innerHTML = ICON_WARN + `Could not send message: ${escapeHtml(data.error || 'unknown error')}`;
+                          result.innerHTML = ICON_WARN + `<span>Could not send message: ${escapeHtml(data.error || 'unknown error')}</span>`;
                         }
                         loadHistory();
                       } catch (err) {
                         result.className = 'banner error';
-                        result.innerHTML = ICON_WARN + 'Request failed: ' + escapeHtml(String(err));
+                        result.innerHTML = ICON_WARN + `<span>Request failed: ${escapeHtml(String(err))}</span>`;
                       }
                     });
                   }
@@ -146,7 +146,10 @@ public class IndexServlet extends HttpServlet {
                         const badgeClass = m.classificationLabel === 'spam' ? 'spam' : 'ham';
                         return `
                           <div class="msg-row">
-                            <div class="msg-route">${escapeHtml(m.source)} <span class="arrow">&#8594;</span> ${escapeHtml(m.destination)}</div>
+                            <div>
+                              <div class="msg-route">${escapeHtml(m.source)} <span class="arrow">&#8594;</span> ${escapeHtml(m.destination)}</div>
+                              <div class="msg-body">${escapeHtml(m.body || '')}</div>
+                            </div>
                             <div class="msg-meta">
                               <span class="badge ${badgeClass}">${escapeHtml(m.classificationLabel)} &middot; ${m.classificationScore.toFixed(2)}</span>
                               <div class="msg-time">${escapeHtml(m.status)} &middot; ${new Date(m.receivedAt).toLocaleString()}</div>

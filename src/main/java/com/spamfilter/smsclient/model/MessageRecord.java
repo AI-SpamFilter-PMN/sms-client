@@ -16,9 +16,11 @@ public class MessageRecord {
     private final String status;
     private final String smppMessageId;
     private final String receivedAt;
+    private final String body;
 
     public MessageRecord(String id, String source, String destination, String classificationLabel,
-                          double classificationScore, String status, String smppMessageId, Instant receivedAt) {
+                          double classificationScore, String status, String smppMessageId, Instant receivedAt,
+                          String body) {
         this.id = id;
         this.source = source;
         this.destination = destination;
@@ -27,6 +29,7 @@ public class MessageRecord {
         this.status = status;
         this.smppMessageId = smppMessageId;
         this.receivedAt = receivedAt.toString();
+        this.body = body;
     }
 
     public String getId() {
@@ -59,5 +62,9 @@ public class MessageRecord {
 
     public String getReceivedAt() {
         return receivedAt;
+    }
+
+    public String getBody() {
+        return body;
     }
 }
